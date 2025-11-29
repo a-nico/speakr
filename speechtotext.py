@@ -194,13 +194,21 @@ class Recorder:
 
     def _select_preferred_device(self) -> None:
         """Select the best available WASAPI device."""
-        samson_device = next((d for d in self.wasapi_devices if 'Samson' in d['name']), None)
+        # Priority order: Samson, USB Sound Card, then first available
+        samson_device = next((d for d in self.wasapi_devices if 'samson' in d['name'].lower()), None)
         if samson_device:
             self.device_id = samson_device['index']
             print(f"Using Samson input device: {samson_device['name']} (ID: {self.device_id})")
-        else:
-            self.device_id = self.wasapi_devices[0]['index']
-            print(f"Using first WASAPI device: {self.wasapi_devices[0]['name']} (ID: {self.device_id})")
+            return
+        
+        usb_sound_card = next((d for d in self.wasapi_devices if 'usb sound card' in d['name'].lower()), None)
+        if usb_sound_card:
+            self.device_id = usb_sound_card['index']
+            print(f"Using USB Sound Card input device: {usb_sound_card['name']} (ID: {self.device_id})")
+            return
+        
+        self.device_id = self.wasapi_devices[0]['index']
+        print(f"Using first WASAPI device: {self.wasapi_devices[0]['name']} (ID: {self.device_id})")
 
     def _fallback_to_default_device(self) -> None:
         """Fall back to the system's default input device."""
