@@ -32,7 +32,7 @@ class Config:
     """Manages application configuration, paths, and credentials."""
     
     # Available TTS voices
-    TTS_VOICES = ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"]
+    TTS_VOICES = ["alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer"]
     
     def __init__(self):
         self.base_path = self._get_base_path()
@@ -108,7 +108,13 @@ class TextToSpeechService:
     
     def __init__(self, config: Config):
         self.config = config
-        self.current_voice: str = "alloy"
+        # Default voice (can be overridden via env)
+        env_voice = os.getenv("AZURE_TTS_VOICE_DEFAULT", "alloy").lower()
+        if env_voice in Config.TTS_VOICES:
+            self.current_voice: str = env_voice
+        else:
+            print(f"Invalid AZURE_TTS_VOICE_DEFAULT '{env_voice}'; falling back to 'alloy'")
+            self.current_voice: str = "alloy"
         # Default playback/generation speed (can be overridden via env)
         try:
             env_speed = os.getenv("AZURE_TTS_SPEED_DEFAULT")
