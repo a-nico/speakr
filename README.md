@@ -53,7 +53,7 @@ Speakr is a Python application that records audio from a microphone and transcri
 
 To create a standalone executable, use PyInstaller with the following command:
 ```bash
-pyinstaller --noconfirm --onefile --windowed --icon=speaking.ico --add-data "start.wav;." --add-data "stop.wav;." --add-data "cancel.wav;." --add-data "speaking.ico;." speakr.py
+pyinstaller --noconfirm --onefile --windowed --icon=speaking.ico --add-data "start.wav;." --add-data "stop.wav;." --add-data "cancel.wav;." --add-data "send.wav;." --add-data "speaking.ico;." speakr.py
 ```
 
 ## License

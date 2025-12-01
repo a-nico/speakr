@@ -20,9 +20,9 @@ import traceback
 __version__ = "1.3.0"
 
 # Record hotkey: Ctrl + Windows key
-CTRL_KEYS = {keyboard.Key.ctrl, keyboard.Key.ctrl_l, keyboard.Key.ctrl_r}
+CTRL_KEYS = {keyboard.Key.ctrl_l}
 WIN_KEYS = {keyboard.Key.cmd, keyboard.Key.cmd_l, keyboard.Key.cmd_r}
-ALT_KEYS = {keyboard.Key.alt, keyboard.Key.alt_l, keyboard.Key.alt_r, keyboard.Key.alt_gr}
+ALT_KEYS = {keyboard.Key.alt_l}
 
 RECORD_SECONDS = 60  # Max recording duration in seconds
 SAMPLE_RATE = 16000  # Default audio sample rate, will be adjusted if unsupported
@@ -695,16 +695,10 @@ def create_tray_menu(
     def echo_mode_checked(item: pystray.MenuItem) -> bool:
         return ECHO_MODE
 
-    def cancel_tts(icon: pystray.Icon, item: pystray.MenuItem) -> None:
-        global tts_service
-        if tts_service:
-            tts_service.stop_playback()
-
     return pystray.Menu(
         pystray.MenuItem("Microphones", pystray.Menu(lambda: create_mic_menu(recorder, icon))),
         pystray.MenuItem("TTS Voice", pystray.Menu(lambda: create_voice_menu(icon))),
         pystray.MenuItem("TTS Speed", pystray.Menu(lambda: create_speed_menu(icon))),
-        pystray.MenuItem("Cancel TTS", cancel_tts),
         pystray.MenuItem("Refresh mics", on_refresh_mics),
         pystray.MenuItem("Echo mode", toggle_echo_mode, checked=echo_mode_checked),
         pystray.MenuItem("Exit", on_exit)
@@ -842,16 +836,20 @@ def main() -> None:
         nonlocal combo_activated, tts_combo_activated, record_start_time
         
         try:
-            # Allow ESC to cancel an active recording without transcribing
-            if key == keyboard.Key.esc and (recorder.recording or combo_activated):
-                safe_execute(play_click, "Playing cancel sound", "cancel")
-                print("Recording canceled.")
-                recorder.cancel()
-                with state_lock:
-                    combo_activated = False
-                    pressed_keys.clear()
-                    key_press_order.clear()
-                return
+            # Allow ESC to cancel an active recording without transcribing, or stop TTS playback
+            if key == keyboard.Key.esc:
+                if recorder.recording or combo_activated:
+                    safe_execute(play_click, "Playing cancel sound", "cancel")
+                    print("Recording canceled.")
+                    recorder.cancel()
+                    with state_lock:
+                        combo_activated = False
+                        pressed_keys.clear()
+                        key_press_order.clear()
+                    return
+                elif tts_service and tts_service._is_playing:
+                    tts_service.stop_playback()
+                    return
 
             # Normalize left/right modifier keys
             normalized_key = key
@@ -892,7 +890,7 @@ def main() -> None:
                     # Don't activate TTS if Ctrl is also pressed (to avoid conflict with Ctrl+Win)
                     if keyboard.Key.ctrl not in pressed_keys:
                         tts_combo_activated = True
-                        safe_execute(play_click, "Playing start sound", "start")
+                        # No start sound for TTS - only play send sound on release
                         print("TTS hotkey activated - will speak clipboard text on release...")
                         return
                 
