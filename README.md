@@ -1,8 +1,8 @@
-# README.md - SpeechToText
+# README.md - Speakr
 
 ## Overview
 
-SpeechToText is a Python application that records audio from a microphone and transcribes it to text using Azure Speech-to-Text services. It also includes Text-to-Speech functionality using Azure OpenAI TTS. The transcribed text is copied to the clipboard and pasted into the active application. It runs in the system tray for easy access.
+Speakr is a Python application that records audio from a microphone and transcribes it to text using Azure Speech-to-Text services. It also includes Text-to-Speech functionality using Azure OpenAI TTS. The transcribed text is copied to the clipboard and pasted into the active application. It runs in the system tray for easy access.
 
 ## Installation
 
@@ -32,7 +32,7 @@ SpeechToText is a Python application that records audio from a microphone and tr
 4. **Run the App**:
    In the terminal, execute:
    ```bash
-   python speechtotext.py
+   python speakr.py
    ```
 
 ## Usage
@@ -53,7 +53,7 @@ SpeechToText is a Python application that records audio from a microphone and tr
 
 To create a standalone executable, use PyInstaller with the following command:
 ```bash
-pyinstaller --noconfirm --onefile --windowed --icon=speaking.ico --add-data "start.wav;." --add-data "stop.wav;." --add-data "cancel.wav;." --add-data "speaking.ico;." speechtotext.py
+pyinstaller --noconfirm --onefile --windowed --icon=speaking.ico --add-data "start.wav;." --add-data "stop.wav;." --add-data "cancel.wav;." --add-data "speaking.ico;." speakr.py
 ```
 
 ## License
