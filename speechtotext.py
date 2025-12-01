@@ -129,6 +129,7 @@ class TextToSpeechService:
             self.speed = 1.0
         self._is_playing: bool = False
         self._play_lock = threading.Lock()
+        self._current_play_obj: Optional[sa.PlayObject] = None
     
     @property
     def available_voices(self) -> List[str]:
@@ -219,6 +220,21 @@ class TextToSpeechService:
             show_error_notification("TTS Error", f"Failed to synthesize speech: {e}")
             return None
     
+    def stop_playback(self) -> None:
+        """Stop the currently playing TTS audio."""
+        with self._play_lock:
+            if self._current_play_obj is not None and self._is_playing:
+                try:
+                    self._current_play_obj.stop()
+                    print("TTS playback stopped.")
+                except Exception as e:
+                    print(f"Error stopping TTS playback: {e}")
+                finally:
+                    self._current_play_obj = None
+                    self._is_playing = False
+            else:
+                print("No TTS audio is currently playing.")
+    
     def play_audio(self, audio_data: bytes) -> None:
         """Play audio data using simpleaudio."""
         with self._play_lock:
@@ -243,6 +259,8 @@ class TextToSpeechService:
                             wf.getframerate()
                         )
                     play_obj = wave_obj.play()
+                    with self._play_lock:
+                        self._current_play_obj = play_obj
                     play_obj.wait_done()
                 except Exception:
                     # If WAV fails, the audio is likely MP3
@@ -272,6 +290,8 @@ class TextToSpeechService:
                         samplerate
                     )
                     play_obj = wave_obj.play()
+                    with self._play_lock:
+                        self._current_play_obj = play_obj
                     play_obj.wait_done()
                     
             except Exception as e:
@@ -281,6 +301,7 @@ class TextToSpeechService:
             finally:
                 with self._play_lock:
                     self._is_playing = False
+                    self._current_play_obj = None
         
         threading.Thread(target=_play, daemon=True).start()
     
@@ -674,10 +695,16 @@ def create_tray_menu(
     def echo_mode_checked(item: pystray.MenuItem) -> bool:
         return ECHO_MODE
 
+    def cancel_tts(icon: pystray.Icon, item: pystray.MenuItem) -> None:
+        global tts_service
+        if tts_service:
+            tts_service.stop_playback()
+
     return pystray.Menu(
         pystray.MenuItem("Microphones", pystray.Menu(lambda: create_mic_menu(recorder, icon))),
         pystray.MenuItem("TTS Voice", pystray.Menu(lambda: create_voice_menu(icon))),
         pystray.MenuItem("TTS Speed", pystray.Menu(lambda: create_speed_menu(icon))),
+        pystray.MenuItem("Cancel TTS", cancel_tts),
         pystray.MenuItem("Refresh mics", on_refresh_mics),
         pystray.MenuItem("Echo mode", toggle_echo_mode, checked=echo_mode_checked),
         pystray.MenuItem("Exit", on_exit)
@@ -786,6 +813,9 @@ def main() -> None:
     # Use a lock to safely modify state from different threads
     state_lock = threading.Lock()
     pressed_keys = set()
+    # Track the order of key presses to enforce correct sequence
+    # Windows key must be pressed SECOND (after Ctrl or Alt)
+    key_press_order: List[keyboard.Key] = []
     hotkey_combo = {keyboard.Key.ctrl, keyboard.Key.cmd}  # Ctrl + Win for speech-to-text
     tts_hotkey_combo = {keyboard.Key.alt, keyboard.Key.cmd}  # Alt + Win for text-to-speech
     combo_activated = False
@@ -800,6 +830,7 @@ def main() -> None:
             combo_activated = False
             tts_combo_activated = False
             pressed_keys.clear()
+            key_press_order.clear()
         if recorder.recording:
             recorder.cancel()
         print("State reset complete - ready for next recording.")
@@ -819,6 +850,7 @@ def main() -> None:
                 with state_lock:
                     combo_activated = False
                     pressed_keys.clear()
+                    key_press_order.clear()
                 return
 
             # Normalize left/right modifier keys
@@ -832,10 +864,31 @@ def main() -> None:
 
             with state_lock:
                 if normalized_key in (keyboard.Key.ctrl, keyboard.Key.cmd, keyboard.Key.alt):
-                    pressed_keys.add(normalized_key)
+                    # Only add to order if not already pressed (avoid key repeat)
+                    if normalized_key not in pressed_keys:
+                        pressed_keys.add(normalized_key)
+                        key_press_order.append(normalized_key)
+                
+                # Helper function to check if Windows key was pressed second
+                def is_windows_key_second(required_first_key: keyboard.Key) -> bool:
+                    """Check if the key order is: required_first_key, then Windows key."""
+                    if len(key_press_order) < 2:
+                        return False
+                    # Find positions of the keys in the press order
+                    try:
+                        first_key_pos = key_press_order.index(required_first_key)
+                        win_key_pos = key_press_order.index(keyboard.Key.cmd)
+                        # Windows key must come after the first key
+                        return win_key_pos > first_key_pos
+                    except ValueError:
+                        return False
                 
                 # Check for TTS hotkey (Alt + Win) - must check before recording hotkey
-                if tts_hotkey_combo.issubset(pressed_keys) and not tts_combo_activated and not combo_activated:
+                # Windows key must be pressed AFTER Alt
+                if (tts_hotkey_combo.issubset(pressed_keys) and 
+                    not tts_combo_activated and 
+                    not combo_activated and
+                    is_windows_key_second(keyboard.Key.alt)):
                     # Don't activate TTS if Ctrl is also pressed (to avoid conflict with Ctrl+Win)
                     if keyboard.Key.ctrl not in pressed_keys:
                         tts_combo_activated = True
@@ -844,7 +897,12 @@ def main() -> None:
                         return
                 
                 # Check for recording hotkey (Ctrl + Win)
-                if hotkey_combo.issubset(pressed_keys) and not recorder.recording and not combo_activated and not tts_combo_activated:
+                # Windows key must be pressed AFTER Ctrl
+                if (hotkey_combo.issubset(pressed_keys) and 
+                    not recorder.recording and 
+                    not combo_activated and 
+                    not tts_combo_activated and
+                    is_windows_key_second(keyboard.Key.ctrl)):
                     combo_activated = True
                     safe_execute(play_click, "Playing start sound", "start")
                     print("Recording started... (release to transcribe)")
@@ -853,6 +911,7 @@ def main() -> None:
                         # Failed to start recording, reset state
                         combo_activated = False
                         pressed_keys.clear()
+                        key_press_order.clear()
         except Exception as e:
             print(f"Error in on_press handler: {e}")
             print(traceback.format_exc())
@@ -896,6 +955,7 @@ def main() -> None:
                 
                 with state_lock:
                     pressed_keys.clear()
+                    key_press_order.clear()
                     tts_combo_activated = False
                 return
             
@@ -937,11 +997,15 @@ def main() -> None:
                 # Reset state for the next recording
                 with state_lock:
                     pressed_keys.clear()
+                    key_press_order.clear()
                     combo_activated = False
             
             elif normalized_key in (keyboard.Key.ctrl, keyboard.Key.cmd, keyboard.Key.alt):
                 with state_lock:
                     pressed_keys.discard(normalized_key)
+                    # Remove from order list as well
+                    if normalized_key in key_press_order:
+                        key_press_order.remove(normalized_key)
                 
         except Exception as e:
             print(f"Error in on_release handler: {e}")
@@ -966,7 +1030,7 @@ def main() -> None:
         print("Microphone menu refreshed.")
 
     # The icon needs to be created before the menu so we can pass it to the menu creation function
-    icon = pystray.Icon("SpeechToText", create_icon(), "SpeechToText")
+    icon = pystray.Icon("Speakr", create_icon(), "Speakr")
 
     icon.menu = create_tray_menu(recorder, icon, on_refresh_mics, on_exit)
     icon.run()
