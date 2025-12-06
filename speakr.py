@@ -837,19 +837,24 @@ def main() -> None:
         nonlocal combo_activated, tts_combo_activated, record_start_time
         
         try:
-            # Allow ESC to cancel an active recording without transcribing, or stop TTS playback
+            # ESC still stops TTS playback
             if key == keyboard.Key.esc:
-                if recorder.recording or combo_activated:
+                if tts_service and tts_service._is_playing:
+                    tts_service.stop_playback()
+                    return
+
+            # Windows key cancels an active recording session
+            if key in WIN_KEYS:
+                with state_lock:
+                    rec_active = recorder.recording or combo_activated
+                if rec_active:
                     safe_execute(play_click, "Playing cancel sound", "cancel")
-                    print("Recording canceled.")
+                    print("Recording canceled (Win key).")
                     recorder.cancel()
                     with state_lock:
                         combo_activated = False
                         pressed_keys.clear()
                         key_press_order.clear()
-                    return
-                elif tts_service and tts_service._is_playing:
-                    tts_service.stop_playback()
                     return
 
             # Normalize left/right modifier keys
