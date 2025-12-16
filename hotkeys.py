@@ -46,7 +46,9 @@ def create_hotkey_listener(
         nonlocal combo_activated, tts_combo_activated, record_start_time
         try:
             if key == keyboard.Key.esc:
-                if tts_service and getattr(tts_service, "_is_playing", False):
+                if tts_service and (
+                    getattr(tts_service, "_is_playing", False) or getattr(tts_service, "_streaming_active", False)
+                ):
                     tts_service.stop_playback()
                     return
 
