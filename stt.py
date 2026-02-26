@@ -46,7 +46,7 @@ def transcribe_audio(wav_bytes: io.BytesIO, config: Config) -> str:
         if not config.azure_stt_api_key or not config.azure_stt_endpoint:
             print("Azure STT not configured.")
             show_error_notification(
-                "STT Error", "Azure STT not configured. Please set AZURE_STT_ENDPOINT and AZURE_STT_API_KEY."
+                "STT Error", "Azure STT not configured. Please set azure.stt.endpoint and azure.stt.api_key in config.yaml."
             )
             return ""
 

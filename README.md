@@ -9,22 +9,27 @@ Speakr is a Python application that records audio from a microphone and transcri
 1. **Install Dependencies**:
    Open a terminal and run:
    ```bash
-   pip install pynput sounddevice requests pyperclip pystray keyboard soundfile simpleaudio python-dotenv
+   pip install pynput sounddevice requests pyperclip pystray keyboard soundfile simpleaudio pyyaml
    ```
 
 2. **Set Azure API Details**:
-   Create a [`.env`](.env ) file in the same directory as the script with your Azure Speech-to-Text and TTS credentials. Define **all four** variables (no defaults are assumed):
-   ```plaintext
-   # Speech-to-Text (STT)
-   AZURE_STT_ENDPOINT=your_speech_to_text_endpoint
-   AZURE_STT_API_KEY=your_speech_to_text_api_key
+   Create a [config.yaml](config.yaml) file in the same directory as the script with your Azure Speech-to-Text and TTS credentials:
+   ```yaml
+   azure:
+     stt:
+       endpoint: your_speech_to_text_endpoint
+       api_key: your_speech_to_text_api_key
 
-   # Text-to-Speech (TTS)
-   AZURE_TTS_ENDPOINT=your_text_to_speech_endpoint
-   AZURE_TTS_API_KEY=your_text_to_speech_api_key
-   # Optional: default TTS speed (0.25–4.0, defaults to 1.0 if unset/invalid)
-   AZURE_TTS_SPEED_DEFAULT=1.30
+     tts:
+       endpoint: your_text_to_speech_endpoint
+       api_key: your_text_to_speech_api_key
+       # Optional: default voice (alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer)
+       voice_default: alloy
+       # Optional: default speed (0.25–4.0)
+       speed_default: 1.30
    ```
+
+   You can copy [config.yaml-template](config.yaml-template) and rename it to [config.yaml](config.yaml).
 
 3. **Provide Sound Files**:
    Add short WAV files for feedback sounds ([`start.wav`](start.wav ), [`stop.wav`](stop.wav ), [`cancel.wav`](cancel.wav ), [`send.wav`](send.wav )) in the same directory as the script.

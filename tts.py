@@ -1,5 +1,4 @@
 import io
-import os
 import re
 import threading
 import time
@@ -23,23 +22,8 @@ class TextToSpeechService:
 
     def __init__(self, config: Config):
         self.config = config
-        env_voice = (os.getenv("AZURE_TTS_VOICE_DEFAULT", "alloy") or "").lower()
-        if env_voice in Config.TTS_VOICES:
-            self.current_voice: str = env_voice
-        else:
-            print(f"Invalid AZURE_TTS_VOICE_DEFAULT '{env_voice}'; falling back to 'alloy'")
-            self.current_voice = "alloy"
-
-        try:
-            env_speed = os.getenv("AZURE_TTS_SPEED_DEFAULT")
-            if env_speed is not None:
-                value = float(env_speed)
-                self.speed = max(0.25, min(4.0, value))
-            else:
-                self.speed = 1.0
-        except ValueError:
-            print("Invalid AZURE_TTS_SPEED_DEFAULT value; falling back to 1.0")
-            self.speed = 1.0
+        self.current_voice: str = config.tts_voice_default
+        self.speed = config.tts_speed_default
 
         self._is_playing: bool = False
         self._play_lock = threading.Lock()
@@ -80,7 +64,7 @@ class TextToSpeechService:
     def synthesize_speech(self, text: str) -> Optional[bytes]:
         if not self.config.azure_tts_api_key or not self.config.azure_tts_endpoint:
             print("Azure TTS not configured.")
-            show_error_notification("TTS Error", "Azure TTS not configured. Please set AZURE_TTS_ENDPOINT and AZURE_TTS_API_KEY.")
+            show_error_notification("TTS Error", "Azure TTS not configured. Please set azure.tts.endpoint and azure.tts.api_key in config.yaml.")
             return None
 
         try:
