@@ -9,7 +9,7 @@ Speakr is a Python application that records audio from a microphone and transcri
 1. **Install Dependencies**:
    Open a terminal and run:
    ```bash
-   pip install pynput sounddevice requests pyperclip pystray keyboard soundfile simpleaudio pyyaml
+   pip install -r requirements.txt
    ```
 
 2. **Set Azure API Details**:

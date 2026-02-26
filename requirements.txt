@@ -1,0 +1,9 @@
+pynput
+sounddevice
+requests
+pyperclip
+pystray
+keyboard
+soundfile
+simpleaudio
+pyyaml
