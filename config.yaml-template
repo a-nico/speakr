@@ -12,3 +12,17 @@ azure:
 
     # Optional: TTS playback speed (0.25 to 4.0, default is 1.0)
     # speed_default: 1.0
+
+  proofread:
+    endpoint: https://gauss-m42ebr6j-eastus2.cognitiveservices.azure.com/openai/responses?api-version=2025-04-01-preview
+    api_key: <API_KEY>
+    # Optional: model/deployment name
+    # model: gpt-5.2-chat
+    # Optional: max output tokens
+    # max_completion_tokens: 2048
+    # Optional: proofreading instruction
+    # system_prompt: |
+    #   You are a careful proofreading assistant.
+    #   Correct grammar, spelling, punctuation, and clarity.
+    #   Keep the original meaning and tone.
+    #   Return only the corrected text.

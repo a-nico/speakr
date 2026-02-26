@@ -11,6 +11,7 @@ CTRL_KEYS = {keyboard.Key.ctrl_l}
 WIN_KEYS = {keyboard.Key.cmd, keyboard.Key.cmd_l, keyboard.Key.cmd_r}
 ALT_KEYS = {keyboard.Key.alt_l}
 B_KEY = keyboard.KeyCode.from_char("b")
+V_KEY = keyboard.KeyCode.from_char("v")
 MIN_RECORD_DURATION = 1.0
 
 
@@ -18,21 +19,25 @@ def create_hotkey_listener(
     recorder,
     tts_service,
     transcribe_callback: Callable[[object], None],
+    proofread_callback: Callable[[], None],
     play_click: Callable[[str], None],
 ) -> keyboard.Listener:
     state_lock = threading.Lock()
     pressed_keys: Set[keyboard.Key] = set()
     key_press_order: List[keyboard.Key] = []
     hotkey_combo = {keyboard.Key.alt, B_KEY}
+    proofread_hotkey_combo = {keyboard.Key.alt, V_KEY}
     tts_hotkey_combo = {keyboard.Key.ctrl, keyboard.Key.cmd}
     combo_activated = False
+    proofread_combo_activated = False
     tts_combo_activated = False
     record_start_time = 0.0
 
     def reset_state() -> None:
-        nonlocal combo_activated, tts_combo_activated
+        nonlocal combo_activated, proofread_combo_activated, tts_combo_activated
         with state_lock:
             combo_activated = False
+            proofread_combo_activated = False
             tts_combo_activated = False
             pressed_keys.clear()
             key_press_order.clear()
@@ -43,7 +48,7 @@ def create_hotkey_listener(
     recorder.on_error_callback = reset_state
 
     def on_press(key: keyboard.Key) -> None:
-        nonlocal combo_activated, tts_combo_activated, record_start_time
+        nonlocal combo_activated, proofread_combo_activated, tts_combo_activated, record_start_time
         try:
             if key == keyboard.Key.esc:
                 if tts_service and (
@@ -74,9 +79,11 @@ def create_hotkey_listener(
                 normalized_key = keyboard.Key.alt
             elif hasattr(key, "char") and key.char == "b":
                 normalized_key = B_KEY
+            elif hasattr(key, "char") and key.char == "v":
+                normalized_key = V_KEY
 
             with state_lock:
-                if normalized_key in (keyboard.Key.ctrl, keyboard.Key.cmd, keyboard.Key.alt, B_KEY):
+                if normalized_key in (keyboard.Key.ctrl, keyboard.Key.cmd, keyboard.Key.alt, B_KEY, V_KEY):
                     if normalized_key not in pressed_keys:
                         pressed_keys.add(normalized_key)
                         key_press_order.append(normalized_key)
@@ -117,13 +124,25 @@ def create_hotkey_listener(
                         combo_activated = False
                         pressed_keys.clear()
                         key_press_order.clear()
+
+                if (
+                    proofread_hotkey_combo.issubset(pressed_keys)
+                    and not proofread_combo_activated
+                    and not recorder.recording
+                    and not combo_activated
+                    and not tts_combo_activated
+                    and is_second_key(keyboard.Key.alt, V_KEY)
+                ):
+                    proofread_combo_activated = True
+                    print("Proofread hotkey activated - will process selection on release...")
+                    return
         except Exception as exc:
             print(f"Error in on_press handler: {exc}")
             print(traceback.format_exc())
             reset_state()
 
     def on_release(key: keyboard.Key) -> None:
-        nonlocal combo_activated, tts_combo_activated
+        nonlocal combo_activated, proofread_combo_activated, tts_combo_activated
         try:
             normalized_key = key
             if key in CTRL_KEYS:
@@ -134,12 +153,16 @@ def create_hotkey_listener(
                 normalized_key = keyboard.Key.alt
             elif hasattr(key, "char") and key.char == "b":
                 normalized_key = B_KEY
+            elif hasattr(key, "char") and key.char == "v":
+                normalized_key = V_KEY
 
             with state_lock:
                 was_tts_combo_active = tts_combo_activated
                 was_combo_active = combo_activated
+                was_proofread_combo_active = proofread_combo_activated
                 is_combo_key = normalized_key in hotkey_combo
                 is_tts_combo_key = normalized_key in tts_hotkey_combo
+                is_proofread_combo_key = normalized_key in proofread_hotkey_combo
 
             if is_tts_combo_key and was_tts_combo_active:
                 safe_execute(play_click, "Playing send sound", "send")
@@ -158,6 +181,25 @@ def create_hotkey_listener(
                     pressed_keys.clear()
                     key_press_order.clear()
                     tts_combo_activated = False
+                return
+
+            if is_proofread_combo_key and was_proofread_combo_active:
+                safe_execute(play_click, "Playing send sound", "send")
+                print("Proofread hotkey released - proofreading selected text...")
+
+                def do_proofread() -> None:
+                    try:
+                        proofread_callback()
+                    except Exception as exc:  # pragma: no cover - runtime only
+                        print(f"Proofread error: {exc}")
+                        print(traceback.format_exc())
+
+                threading.Thread(target=do_proofread, daemon=True).start()
+
+                with state_lock:
+                    pressed_keys.clear()
+                    key_press_order.clear()
+                    proofread_combo_activated = False
                 return
 
             if is_combo_key and was_combo_active:
@@ -192,7 +234,7 @@ def create_hotkey_listener(
                     key_press_order.clear()
                     combo_activated = False
 
-            elif normalized_key in (keyboard.Key.ctrl, keyboard.Key.cmd, keyboard.Key.alt, B_KEY):
+            elif normalized_key in (keyboard.Key.ctrl, keyboard.Key.cmd, keyboard.Key.alt, B_KEY, V_KEY):
                 with state_lock:
                     pressed_keys.discard(normalized_key)
                     while normalized_key in key_press_order:

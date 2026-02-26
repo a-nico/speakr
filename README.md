@@ -13,23 +13,8 @@ Speakr is a Python application that records audio from a microphone and transcri
    ```
 
 2. **Set Azure API Details**:
-   Create a [config.yaml](config.yaml) file in the same directory as the script with your Azure Speech-to-Text and TTS credentials:
-   ```yaml
-   azure:
-     stt:
-       endpoint: your_speech_to_text_endpoint
-       api_key: your_speech_to_text_api_key
-
-     tts:
-       endpoint: your_text_to_speech_endpoint
-       api_key: your_text_to_speech_api_key
-       # Optional: default voice (alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer)
-       voice_default: alloy
-       # Optional: default speed (0.25–4.0)
-       speed_default: 1.30
-   ```
-
-   You can copy [config.yaml-template](config.yaml-template) and rename it to [config.yaml](config.yaml).
+   Copy [`config.yaml-template`](config.yaml-template) to `config.yaml` and fill in your Azure credentials there.
+   
 
 3. **Provide Sound Files**:
    Add short WAV files for feedback sounds ([`start.wav`](start.wav ), [`stop.wav`](stop.wav ), [`cancel.wav`](cancel.wav ), [`send.wav`](send.wav )) in the same directory as the script.
@@ -54,6 +39,11 @@ Speakr is a Python application that records audio from a microphone and transcri
 - Press **Ctrl + Windows key** to hear it (it may take a few seconds).
 - Press **Esc ** to cancel the sound playback.
 - Right-click the tray icon and select **TTS Voice** to choose from available voices (alloy, ash, ballad, coral, echo, fable, onyx, nova, sage, shimmer, verse).
+
+### Proofread (LLM)
+- Highlight text in any app.
+- Press **Alt + V**.
+- The selected text is copied, sent to Azure LLM with `azure.proofread.system_prompt`, and the corrected version is pasted back.
 
 ## Building an Executable
 

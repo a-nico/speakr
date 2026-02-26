@@ -6,6 +6,7 @@ import pystray
 from audio_feedback import load_sounds, play_click, show_error_notification
 from config import Config
 from hotkeys import create_hotkey_listener
+from proofread import proofread_selected_text
 from recorder import Recorder
 from stt import copy_and_paste, transcribe_audio
 from tray import create_icon, create_tray_menu
@@ -31,7 +32,18 @@ def main() -> None:
             print(f"Error during transcription or pasting: {exc}")
             show_error_notification("Transcription Error", f"Failed to transcribe audio: {exc}")
 
-    listener = create_hotkey_listener(recorder, tts_service, transcribe_and_paste, play_click)
+    def proofread_and_paste() -> None:
+        try:
+            success = proofread_selected_text(config)
+            if success:
+                print("Proofread text pasted.")
+            else:
+                print("Proofread failed or returned no text.")
+        except Exception as exc:
+            print(f"Error during proofread or pasting: {exc}")
+            show_error_notification("Proofread Error", f"Failed to proofread text: {exc}")
+
+    listener = create_hotkey_listener(recorder, tts_service, transcribe_and_paste, proofread_and_paste, play_click)
     listener.start()
 
     def on_exit(icon: pystray.Icon) -> None:

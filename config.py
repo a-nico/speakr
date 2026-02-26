@@ -45,6 +45,24 @@ class Config:
 
         self.tts_speed_default = self._read_float("azure", "tts", "speed_default", default=1.0, minimum=0.25, maximum=4.0)
 
+        # Proofread (LLM) configuration
+        self.azure_proofread_endpoint = self._read_str("azure", "proofread", "endpoint")
+        self.azure_proofread_api_key = self._read_str("azure", "proofread", "api_key")
+        self.azure_proofread_model = self._read_str("azure", "proofread", "model", default="gpt-5.2-chat")
+        self.azure_proofread_api_version = self._read_str("azure", "proofread", "api_version", default="2025-04-01-preview")
+        self.azure_proofread_system_prompt = self._read_str(
+            "azure",
+            "proofread",
+            "system_prompt",
+            default=(
+                "You are a careful proofreading assistant. Correct grammar, spelling, punctuation, "
+                "and clarity while preserving tone. Return only corrected text."
+            ),
+        )
+        self.azure_proofread_max_completion_tokens = self._read_int(
+            "azure", "proofread", "max_completion_tokens", default=2048, minimum=1
+        )
+
         self.sound_files = {
             "start": "start.wav",
             "stop": "stop.wav",
@@ -115,6 +133,28 @@ class Config:
             numeric = min(maximum, numeric)
         return numeric
 
+    def _read_int(
+        self,
+        *path: str,
+        default: int,
+        minimum: Optional[int] = None,
+        maximum: Optional[int] = None,
+    ) -> int:
+        value = self._read_value(*path)
+        if value is None:
+            return default
+        try:
+            numeric = int(value)
+        except (TypeError, ValueError):
+            print(f"Invalid config.yaml value for {'.'.join(path)}; falling back to {default}.")
+            return default
+
+        if minimum is not None:
+            numeric = max(minimum, numeric)
+        if maximum is not None:
+            numeric = min(maximum, numeric)
+        return numeric
+
     def _read_value(self, *path: str) -> Any:
         current: Any = self.yaml_config
         for key in path:
@@ -138,3 +178,11 @@ class Config:
             print("Azure TTS configuration incomplete. Check config.yaml at azure.tts.endpoint / azure.tts.api_key.")
         else:
             print("Azure TTS configuration loaded successfully")
+
+        if not self.azure_proofread_endpoint or not self.azure_proofread_api_key:
+            print(
+                "Azure proofread configuration incomplete. "
+                "Check config.yaml at azure.proofread.endpoint / azure.proofread.api_key."
+            )
+        else:
+            print("Azure proofread configuration loaded successfully")
