@@ -11,7 +11,6 @@ CTRL_KEYS = {keyboard.Key.ctrl_l}
 WIN_KEYS = {keyboard.Key.cmd, keyboard.Key.cmd_l, keyboard.Key.cmd_r}
 ALT_KEYS = {keyboard.Key.alt_l}
 B_KEY = keyboard.KeyCode.from_char("b")
-V_KEY = keyboard.KeyCode.from_char("v")
 MIN_RECORD_DURATION = 1.0
 
 
@@ -26,7 +25,7 @@ def create_hotkey_listener(
     pressed_keys: Set[keyboard.Key] = set()
     key_press_order: List[keyboard.Key] = []
     hotkey_combo = {keyboard.Key.alt, B_KEY}
-    proofread_hotkey_combo = {keyboard.Key.alt, V_KEY}
+    proofread_hotkey_combo = {keyboard.Key.alt, keyboard.Key.cmd}
     tts_hotkey_combo = {keyboard.Key.ctrl, keyboard.Key.cmd}
     combo_activated = False
     proofread_combo_activated = False
@@ -79,11 +78,9 @@ def create_hotkey_listener(
                 normalized_key = keyboard.Key.alt
             elif hasattr(key, "char") and key.char == "b":
                 normalized_key = B_KEY
-            elif hasattr(key, "char") and key.char == "v":
-                normalized_key = V_KEY
 
             with state_lock:
-                if normalized_key in (keyboard.Key.ctrl, keyboard.Key.cmd, keyboard.Key.alt, B_KEY, V_KEY):
+                if normalized_key in (keyboard.Key.ctrl, keyboard.Key.cmd, keyboard.Key.alt, B_KEY):
                     if normalized_key not in pressed_keys:
                         pressed_keys.add(normalized_key)
                         key_press_order.append(normalized_key)
@@ -131,7 +128,7 @@ def create_hotkey_listener(
                     and not recorder.recording
                     and not combo_activated
                     and not tts_combo_activated
-                    and is_second_key(keyboard.Key.alt, V_KEY)
+                    and is_second_key(keyboard.Key.alt, keyboard.Key.cmd)
                 ):
                     proofread_combo_activated = True
                     print("Proofread hotkey activated - will process selection on release...")
@@ -153,8 +150,6 @@ def create_hotkey_listener(
                 normalized_key = keyboard.Key.alt
             elif hasattr(key, "char") and key.char == "b":
                 normalized_key = B_KEY
-            elif hasattr(key, "char") and key.char == "v":
-                normalized_key = V_KEY
 
             with state_lock:
                 was_tts_combo_active = tts_combo_activated
@@ -234,7 +229,7 @@ def create_hotkey_listener(
                     key_press_order.clear()
                     combo_activated = False
 
-            elif normalized_key in (keyboard.Key.ctrl, keyboard.Key.cmd, keyboard.Key.alt, B_KEY, V_KEY):
+            elif normalized_key in (keyboard.Key.ctrl, keyboard.Key.cmd, keyboard.Key.alt, B_KEY):
                 with state_lock:
                     pressed_keys.discard(normalized_key)
                     while normalized_key in key_press_order:

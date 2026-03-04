@@ -42,7 +42,7 @@ Speakr is a Python application that records audio from a microphone and transcri
 
 ### Proofread (LLM)
 - Highlight text in any app.
-- Press **Alt + V**.
+- Press **Alt + Windows key**.
 - The selected text is copied, sent to Azure LLM with `azure.proofread.system_prompt`, and the corrected version is pasted back.
 
 ## Building an Executable
