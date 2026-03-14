@@ -25,8 +25,8 @@ def create_hotkey_listener(
     pressed_keys: Set[keyboard.Key] = set()
     key_press_order: List[keyboard.Key] = []
     hotkey_combo = {keyboard.Key.alt, B_KEY}
-    proofread_hotkey_combo = {keyboard.Key.alt, keyboard.Key.cmd}
-    tts_hotkey_combo = {keyboard.Key.ctrl, keyboard.Key.cmd}
+    proofread_hotkey_combo = {keyboard.Key.ctrl, keyboard.Key.cmd}
+    tts_hotkey_combo = {keyboard.Key.alt, keyboard.Key.cmd}
     combo_activated = False
     proofread_combo_activated = False
     tts_combo_activated = False
@@ -99,7 +99,7 @@ def create_hotkey_listener(
                     tts_hotkey_combo.issubset(pressed_keys)
                     and not tts_combo_activated
                     and not combo_activated
-                    and is_second_key(keyboard.Key.ctrl, keyboard.Key.cmd)
+                    and is_second_key(keyboard.Key.alt, keyboard.Key.cmd)
                 ):
                     if keyboard.Key.alt not in pressed_keys:
                         tts_combo_activated = True
@@ -128,7 +128,7 @@ def create_hotkey_listener(
                     and not recorder.recording
                     and not combo_activated
                     and not tts_combo_activated
-                    and is_second_key(keyboard.Key.alt, keyboard.Key.cmd)
+                    and is_second_key(keyboard.Key.ctrl, keyboard.Key.cmd)
                 ):
                     proofread_combo_activated = True
                     print("Proofread hotkey activated - will process selection on release...")
