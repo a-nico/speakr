@@ -47,9 +47,18 @@ Speakr is a Python application that records audio from a microphone and transcri
 
 ## Building an Executable
 
-To create a standalone executable, use PyInstaller with the following command:
+This repo includes a PowerShell build helper.
+
+Open a PowerShell terminal in the project folder and run:
+```powershell
+.\build.ps1
+```
+
+The helper runs PyInstaller against the existing spec file, which is equivalent to the old long command but much easier to reuse.
+
+For reference, the underlying command is:
 ```bash
-pyinstaller --noconfirm --onefile --windowed --icon=speaking.ico --add-data "start.wav;." --add-data "stop.wav;." --add-data "cancel.wav;." --add-data "send.wav;." --add-data "speaking.ico;." speakr.py
+pyinstaller --noconfirm speakr.spec
 ```
 
 ## License
