@@ -159,7 +159,23 @@ def create_hotkey_listener(
                 is_tts_combo_key = normalized_key in tts_hotkey_combo
                 is_proofread_combo_key = normalized_key in proofread_hotkey_combo
 
-            if is_tts_combo_key and was_tts_combo_active:
+                if normalized_key in (keyboard.Key.ctrl, keyboard.Key.cmd, keyboard.Key.alt, B_KEY):
+                    pressed_keys.discard(normalized_key)
+                    while normalized_key in key_press_order:
+                        key_press_order.remove(normalized_key)
+
+                should_run_tts = (
+                    is_tts_combo_key
+                    and was_tts_combo_active
+                    and not any(combo_key in pressed_keys for combo_key in tts_hotkey_combo)
+                )
+                should_run_proofread = (
+                    is_proofread_combo_key
+                    and was_proofread_combo_active
+                    and not any(combo_key in pressed_keys for combo_key in proofread_hotkey_combo)
+                )
+
+            if should_run_tts:
                 safe_execute(play_click, "Playing send sound", "send")
                 print("TTS hotkey released - speaking clipboard text...")
 
@@ -178,12 +194,13 @@ def create_hotkey_listener(
                     tts_combo_activated = False
                 return
 
-            if is_proofread_combo_key and was_proofread_combo_active:
+            if should_run_proofread:
                 safe_execute(play_click, "Playing send sound", "send")
                 print("Proofread hotkey released - proofreading selected text...")
 
                 def do_proofread() -> None:
                     try:
+                        time.sleep(0.05)
                         proofread_callback()
                     except Exception as exc:  # pragma: no cover - runtime only
                         print(f"Proofread error: {exc}")
@@ -228,12 +245,6 @@ def create_hotkey_listener(
                     pressed_keys.clear()
                     key_press_order.clear()
                     combo_activated = False
-
-            elif normalized_key in (keyboard.Key.ctrl, keyboard.Key.cmd, keyboard.Key.alt, B_KEY):
-                with state_lock:
-                    pressed_keys.discard(normalized_key)
-                    while normalized_key in key_press_order:
-                        key_press_order.remove(normalized_key)
 
         except Exception as exc:
             print(f"Error in on_release handler: {exc}")

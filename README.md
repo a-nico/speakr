@@ -36,13 +36,13 @@ Speakr is a Python application that records audio from a microphone and transcri
 
 ### Text-to-Speech
 - Copy or highlight text that you want to hear spoken.
-- Press **Ctrl + Windows key** to hear it (it may take a few seconds).
+- Press **Alt + Windows key** to hear it (it may take a few seconds).
 - Press **Esc ** to cancel the sound playback.
 - Right-click the tray icon and select **TTS Voice** to choose from available voices (alloy, ash, ballad, coral, echo, fable, onyx, nova, sage, shimmer, verse).
 
 ### Proofread (LLM)
 - Highlight text in any app.
-- Press **Alt + Windows key**.
+- Press **Ctrl + Windows key**.
 - The selected text is copied, sent to Azure LLM with `azure.proofread.system_prompt`, and the corrected version is pasted back.
 
 ## Building an Executable

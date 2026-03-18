@@ -1,5 +1,5 @@
 import time
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
 import keyboard as kb
 import pyperclip
@@ -7,6 +7,13 @@ import requests
 
 from audio_feedback import show_error_notification
 from config import Config
+
+
+KEY_STATE_SETTLE_DELAY_SECONDS = 0.05
+CLIPBOARD_COPY_TIMEOUT_SECONDS = 0.75
+CLIPBOARD_POLL_INTERVAL_SECONDS = 0.05
+SELECTION_CAPTURE_FAILED = "copy_failed"
+SELECTION_NOT_FOUND = "no_selection"
 
 
 def _extract_text_from_response(payload: Any) -> str:
@@ -46,26 +53,45 @@ def _extract_text_from_response(payload: Any) -> str:
     return ""
 
 
-def _get_selected_text() -> Optional[str]:
+def _get_selected_text() -> Tuple[Optional[str], Optional[str]]:
     try:
         original_clipboard = pyperclip.paste()
+        sentinel = f"__speakr_selection_probe__{time.perf_counter_ns()}__"
+        pyperclip.copy(sentinel)
+        time.sleep(KEY_STATE_SETTLE_DELAY_SECONDS)
         kb.press_and_release("ctrl+c")
-        time.sleep(0.15)
-        selected = pyperclip.paste()
+        selected = sentinel
+        deadline = time.time() + CLIPBOARD_COPY_TIMEOUT_SECONDS
+
+        while time.time() < deadline:
+            time.sleep(CLIPBOARD_POLL_INTERVAL_SECONDS)
+            selected = pyperclip.paste()
+            if selected != sentinel:
+                break
+
+        if selected == sentinel:
+            pyperclip.copy(original_clipboard)
+            return None, SELECTION_CAPTURE_FAILED
+
         if not selected or not selected.strip():
-            return None
-        if selected == original_clipboard:
-            return None
-        return selected.strip()
+            pyperclip.copy(original_clipboard)
+            return None, SELECTION_NOT_FOUND
+
+        return selected.strip(), None
     except Exception as exc:
         print(f"Failed to capture selected text: {exc}")
-        return None
+        return None, SELECTION_CAPTURE_FAILED
 
 
 def proofread_selected_text(config: Config) -> bool:
-    selected_text = _get_selected_text()
+    selected_text, selection_error = _get_selected_text()
     if not selected_text:
-        show_error_notification("Proofread Error", "No selected text found. Please highlight text first.")
+        message = "No selected text found. Please highlight text first."
+        if selection_error == SELECTION_CAPTURE_FAILED:
+            message = (
+                "Could not copy the current selection. Release the hotkey and make sure the target app supports Ctrl+C."
+            )
+        show_error_notification("Proofread Error", message)
         return False
 
     if not config.azure_proofread_endpoint or not config.azure_proofread_api_key:
