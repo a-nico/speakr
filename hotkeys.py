@@ -101,10 +101,9 @@ def create_hotkey_listener(
                     and not combo_activated
                     and is_second_key(keyboard.Key.alt, keyboard.Key.cmd)
                 ):
-                    if keyboard.Key.alt not in pressed_keys:
-                        tts_combo_activated = True
-                        print("TTS hotkey activated - will speak clipboard text on release...")
-                        return
+                    tts_combo_activated = True
+                    print("TTS hotkey activated - will speak clipboard text on release...")
+                    return
 
                 if (
                     hotkey_combo.issubset(pressed_keys)
