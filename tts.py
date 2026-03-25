@@ -13,8 +13,9 @@ import simpleaudio as sa
 from pynput import keyboard
 import keyboard as kb
 
-from audio_feedback import play_click, show_error_notification
+from audio_feedback import play_click
 from config import Config
+from notifications import show_error_notification
 
 
 class TextToSpeechService:

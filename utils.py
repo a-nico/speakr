@@ -1,7 +1,7 @@
 import traceback
 from typing import Any, Callable
 
-from audio_feedback import show_error_notification
+from notifications import show_error_notification
 
 
 def safe_execute(func: Callable, error_context: str, *args, **kwargs) -> Any:

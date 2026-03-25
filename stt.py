@@ -5,8 +5,8 @@ from typing import Tuple
 import requests
 import simpleaudio as sa
 
-from audio_feedback import show_error_notification
 from config import Config
+from notifications import show_error_notification
 
 ECHO_MODE = False
 

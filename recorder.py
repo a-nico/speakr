@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, List, Optional
 import numpy as np
 import sounddevice as sd
 
-from audio_feedback import show_error_notification
+from notifications import show_error_notification
 
 RECORD_SECONDS = 60  # Max recording duration in seconds
 SAMPLE_RATE = 16000  # Default audio sample rate, will be adjusted if unsupported

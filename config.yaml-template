@@ -20,9 +20,15 @@ azure:
     # model: gpt-5.2-chat
     # Optional: max output tokens
     # max_completion_tokens: 2048
-    # Optional: proofreading instruction
-    # system_prompt: |
-    #   You are a careful proofreading assistant.
-    #   Correct grammar, spelling, punctuation, and clarity.
-    #   Keep the original meaning and tone.
-    #   Return only the corrected text.
+    # Required: at least one proofreading prompt option shown in the tray menu
+    system_prompt_options:
+      - |
+          You are a careful proofreading assistant.
+          Correct grammar, spelling, punctuation, and clarity.
+          Keep the original meaning and tone.
+          Return only the corrected text.
+      - |
+          You are a thoughtful editing assistant.
+          Improve grammar, spelling, punctuation, syntax, and flow.
+          You may gently rewrite awkward phrasing for readability while preserving meaning and tone.
+          Return only the revised text.

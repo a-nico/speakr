@@ -1,6 +1,6 @@
 import os
 import sys
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import yaml
 
@@ -50,15 +50,8 @@ class Config:
         self.azure_proofread_api_key = self._read_str("azure", "proofread", "api_key")
         self.azure_proofread_model = self._read_str("azure", "proofread", "model", default="gpt-5.2-chat")
         self.azure_proofread_api_version = self._read_str("azure", "proofread", "api_version", default="2025-04-01-preview")
-        self.azure_proofread_system_prompt = self._read_str(
-            "azure",
-            "proofread",
-            "system_prompt",
-            default=(
-                "You are a careful proofreading assistant. Correct grammar, spelling, punctuation, "
-                "and clarity while preserving tone. Return only corrected text."
-            ),
-        )
+        self.azure_proofread_system_prompt_options = self._read_proofread_prompt_options()
+        self.azure_proofread_selected_prompt_index = 0
         self.azure_proofread_max_completion_tokens = self._read_int(
             "azure", "proofread", "max_completion_tokens", default=2048, minimum=1
         )
@@ -162,6 +155,52 @@ class Config:
                 return None
             current = current.get(key)
         return current
+
+    def _read_proofread_prompt_options(self) -> List[str]:
+        options = self._read_value("azure", "proofread", "system_prompt_options")
+        prompts: List[str] = []
+
+        if isinstance(options, list):
+            for item in options:
+                if not isinstance(item, str):
+                    continue
+                prompt = item.strip()
+                if prompt:
+                    prompts.append(prompt)
+
+        if prompts:
+            return prompts
+
+        try:
+            from notifications import show_error_notification
+
+            show_error_notification(
+                "Proofread Configuration Error",
+                "Azure proofread is missing system_prompt_options. Please add at least one prompt in config.yaml.",
+            )
+        except Exception as exc:
+            print(f"Failed to show proofread configuration error dialog: {exc}")
+            print(
+                "Azure proofread configuration incomplete. "
+                "Set azure.proofread.system_prompt_options to at least one prompt."
+            )
+        return []
+
+    @property
+    def azure_proofread_system_prompt(self) -> Optional[str]:
+        if not self.azure_proofread_system_prompt_options:
+            return None
+
+        if self.azure_proofread_selected_prompt_index < 0:
+            self.azure_proofread_selected_prompt_index = 0
+        elif self.azure_proofread_selected_prompt_index >= len(self.azure_proofread_system_prompt_options):
+            self.azure_proofread_selected_prompt_index = 0
+
+        return self.azure_proofread_system_prompt_options[self.azure_proofread_selected_prompt_index]
+
+    def set_proofread_prompt_index(self, index: int) -> None:
+        if 0 <= index < len(self.azure_proofread_system_prompt_options):
+            self.azure_proofread_selected_prompt_index = index
 
     def get_path(self, filename: str) -> str:
         """Get the absolute path for a given asset file."""

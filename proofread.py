@@ -5,8 +5,8 @@ import keyboard as kb
 import pyperclip
 import requests
 
-from audio_feedback import show_error_notification
 from config import Config
+from notifications import show_error_notification
 
 
 KEY_STATE_SETTLE_DELAY_SECONDS = 0.05
@@ -101,6 +101,14 @@ def proofread_selected_text(config: Config) -> bool:
         )
         return False
 
+    selected_prompt = config.azure_proofread_system_prompt
+    if not selected_prompt:
+        show_error_notification(
+            "Proofread Error",
+            "Azure proofread is missing system_prompt_options. Please add at least one prompt in config.yaml.",
+        )
+        return False
+
     headers = {
         "Content-Type": "application/json",
         "api-key": config.azure_proofread_api_key,
@@ -108,7 +116,7 @@ def proofread_selected_text(config: Config) -> bool:
     payload = {
         "model": config.azure_proofread_model,
         "max_output_tokens": config.azure_proofread_max_completion_tokens,
-        "input": f"{config.azure_proofread_system_prompt}\n\nText to proofread:\n{selected_text}",
+        "input": f"{selected_prompt}\n\nText to proofread:\n{selected_text}",
     }
 
     try:

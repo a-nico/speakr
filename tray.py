@@ -8,6 +8,9 @@ from stt import is_echo_mode, toggle_echo_mode
 from tts import TextToSpeechService
 
 
+PROOFREAD_PROMPT_MENU_LABEL_LENGTH = 20
+
+
 def create_icon(config: Config) -> Image.Image:
     """Load tray icon from speaking.ico; fallback to default."""
     size = (64, 64)
@@ -84,17 +87,47 @@ def create_speed_menu(tts_service: TextToSpeechService, icon) -> List[pystray.Me
     return speed_items
 
 
+def _format_prompt_menu_label(prompt: str) -> str:
+    single_line_prompt = " ".join(prompt.split())
+    if len(single_line_prompt) <= PROOFREAD_PROMPT_MENU_LABEL_LENGTH:
+        return single_line_prompt
+    return single_line_prompt[:PROOFREAD_PROMPT_MENU_LABEL_LENGTH].rstrip() + "..."
+
+
+def create_proofread_prompt_menu(config: Config, icon) -> List[pystray.MenuItem]:
+    prompt_items: List[pystray.MenuItem] = []
+    for index, prompt in enumerate(config.azure_proofread_system_prompt_options):
+        label = _format_prompt_menu_label(prompt)
+
+        def make_handler(prompt_index: int) -> Callable[[], None]:
+            def handler() -> None:
+                config.set_proofread_prompt_index(prompt_index)
+                icon.update_menu()
+
+            return handler
+
+        def make_checker(prompt_index: int) -> Callable[[pystray.MenuItem], bool]:
+            return lambda item, value=prompt_index: config.azure_proofread_selected_prompt_index == value
+
+        item = pystray.MenuItem(label, make_handler(index), checked=make_checker(index), radio=True)
+        prompt_items.append(item)
+
+    return prompt_items
+
+
 def create_tray_menu(
     recorder,
     icon: pystray.Icon,
     on_refresh_mics: Callable[[pystray.Icon], None],
     on_exit: Callable[[pystray.Icon], None],
     tts_service: TextToSpeechService,
+    config: Config,
 ) -> pystray.Menu:
     return pystray.Menu(
         pystray.MenuItem("Microphones", pystray.Menu(lambda: create_mic_menu(recorder, icon))),
         pystray.MenuItem("TTS Voice", pystray.Menu(lambda: create_voice_menu(tts_service, icon))),
         pystray.MenuItem("TTS Speed", pystray.Menu(lambda: create_speed_menu(tts_service, icon))),
+        pystray.MenuItem("Proofread Prompt", pystray.Menu(lambda: create_proofread_prompt_menu(config, icon))),
         pystray.MenuItem("Refresh mics", on_refresh_mics),
         pystray.MenuItem("Echo mode", lambda icon, item: toggle_echo_mode(), checked=lambda item: is_echo_mode()),
         pystray.MenuItem("Exit", on_exit),

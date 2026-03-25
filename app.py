@@ -3,9 +3,10 @@ from typing import Callable
 
 import pystray
 
-from audio_feedback import load_sounds, play_click, show_error_notification
+from audio_feedback import load_sounds, play_click
 from config import Config
 from hotkeys import create_hotkey_listener
+from notifications import show_error_notification
 from proofread import proofread_selected_text
 from recorder import Recorder
 from stt import copy_and_paste, transcribe_audio
@@ -52,12 +53,12 @@ def main() -> None:
 
     def on_refresh_mics(icon: pystray.Icon) -> None:
         recorder.refresh_devices()
-        icon.menu = create_tray_menu(recorder, icon, on_refresh_mics, on_exit, tts_service)
+        icon.menu = create_tray_menu(recorder, icon, on_refresh_mics, on_exit, tts_service, config)
         icon.update_menu()
         print("Microphone menu refreshed.")
 
     icon = pystray.Icon("Speakr", create_icon(config), "Speakr")
-    icon.menu = create_tray_menu(recorder, icon, on_refresh_mics, on_exit, tts_service)
+    icon.menu = create_tray_menu(recorder, icon, on_refresh_mics, on_exit, tts_service, config)
     icon.run()
 
 
