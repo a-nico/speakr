@@ -111,12 +111,21 @@ def proofread_selected_text(config: Config) -> bool:
 
     headers = {
         "Content-Type": "application/json",
-        "api-key": config.azure_proofread_api_key,
+        "Authorization": f"Bearer {config.azure_proofread_api_key}",
     }
     payload = {
         "model": config.azure_proofread_model,
-        "max_output_tokens": config.azure_proofread_max_completion_tokens,
-        "input": f"{selected_prompt}\n\nText to proofread:\n{selected_text}",
+        "max_completion_tokens": config.azure_proofread_max_completion_tokens,
+        "messages": [
+            {
+                "role": "system",
+                "content": selected_prompt,
+            },
+            {
+                "role": "user",
+                "content": selected_text,
+            },
+        ],
     }
 
     try:

@@ -16,19 +16,24 @@ azure:
   proofread:
     endpoint: https://gauss-m42ebr6j-eastus2.cognitiveservices.azure.com/openai/responses?api-version=2025-04-01-preview
     api_key: <API_KEY>
-    # Optional: model/deployment name
-    # model: gpt-5.2-chat
-    # Optional: max output tokens
-    # max_completion_tokens: 2048
+    # Optional: model/deployment name used by the Responses API
+    # model: gpt-5.4
+    # Optional: maximum completion tokens for the response
+    # max_completion_tokens: 16384
     # Required: at least one proofreading prompt option shown in the tray menu
     system_prompt_options:
       - |
           You are a careful proofreading assistant.
           Correct grammar, spelling, punctuation, and clarity.
           Keep the original meaning and tone.
+          Do not use "em dash". Use hyphen "-" instead, but try to not overuse it.
+          Use the single quote ' character for apostrophe, contractions, etc. Use only characters on the standard keyboard.
           Return only the corrected text.
       - |
           You are a thoughtful editing assistant.
-          Improve grammar, spelling, punctuation, syntax, and flow.
-          You may gently rewrite awkward phrasing for readability while preserving meaning and tone.
+          Improve spelling, grammar, punctuation, syntax, and overall flow.
+          You may rephrase awkward or clunky sentences to make them read more naturally.
+          Preserve the original meaning and general tone.
+          Do not use "em dash". Use hyphen "-" instead, but try to not overuse it.
+          Use the single quote ' character for apostrophe, contractions, etc. Use only characters on the standard keyboard.
           Return only the revised text.

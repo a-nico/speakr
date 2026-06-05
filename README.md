@@ -46,6 +46,7 @@ Speakr is a Python application that records audio from a microphone and transcri
 - The selected text is copied, sent to Azure LLM with the active proofread prompt, and the revised version is pasted back.
 - Right-click the tray icon and use **Proofread Prompt** to choose from the prompts defined in `azure.proofread.system_prompt_options`.
 - `azure.proofread.system_prompt_options` is required and must contain at least one prompt.
+- The proofread endpoint should use the Azure Responses API, and the config can override `model` and `max_completion_tokens` if needed.
 
 ## Building an Executable
 

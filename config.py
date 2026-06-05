@@ -48,12 +48,11 @@ class Config:
         # Proofread (LLM) configuration
         self.azure_proofread_endpoint = self._read_str("azure", "proofread", "endpoint")
         self.azure_proofread_api_key = self._read_str("azure", "proofread", "api_key")
-        self.azure_proofread_model = self._read_str("azure", "proofread", "model", default="gpt-5.2-chat")
-        self.azure_proofread_api_version = self._read_str("azure", "proofread", "api_version", default="2025-04-01-preview")
+        self.azure_proofread_model = self._read_str("azure", "proofread", "model", default="gpt-5.4")
         self.azure_proofread_system_prompt_options = self._read_proofread_prompt_options()
         self.azure_proofread_selected_prompt_index = 0
         self.azure_proofread_max_completion_tokens = self._read_int(
-            "azure", "proofread", "max_completion_tokens", default=2048, minimum=1
+            "azure", "proofread", "max_completion_tokens", default=16384, minimum=1
         )
 
         self.sound_files = {
