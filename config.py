@@ -12,16 +12,14 @@ class Config:
     """Manages application configuration, paths, and credentials."""
 
     TTS_VOICES = [
-        "alloy",
-        "ash",
-        "ballad",
-        "coral",
-        "echo",
-        "fable",
-        "nova",
-        "onyx",
-        "sage",
-        "shimmer",
+        "en-US-BrandonMultilingualNeural2",
+        "en-US-AvaMultilingualNeural2",
+        "en-US-AndrewMultilingualNeural2",
+        "en-US-EmmaMultilingualNeural2",
+        "en-US-JennyMultilingualNeural2",
+        "en-US-SerenaMultilingualNeural2",
+        "en-US-AriaNeural",
+        "en-US-GuyNeural",
     ]
 
     def __init__(self) -> None:
@@ -33,15 +31,21 @@ class Config:
         self.azure_stt_api_key = self._read_str("azure", "stt", "api_key")
 
         # Text-to-Speech (TTS) configuration
+        self.azure_tts_region = self._read_str("azure", "tts", "region")
         self.azure_tts_endpoint = self._read_str("azure", "tts", "endpoint")
         self.azure_tts_api_key = self._read_str("azure", "tts", "api_key")
 
-        tts_voice_default = (self._read_str("azure", "tts", "voice_default", default="alloy") or "alloy").lower()
-        if tts_voice_default in self.TTS_VOICES:
+        tts_voice_default = self._read_str(
+            "azure", "tts", "voice_default", default="en-US-BrandonMultilingualNeural2"
+        )
+        if tts_voice_default:
             self.tts_voice_default = tts_voice_default
         else:
-            print(f"Invalid config.yaml value azure.tts.voice_default='{tts_voice_default}'; falling back to 'alloy'.")
-            self.tts_voice_default = "alloy"
+            print(
+                "Invalid config.yaml value azure.tts.voice_default; "
+                "falling back to 'en-US-BrandonMultilingualNeural2'."
+            )
+            self.tts_voice_default = "en-US-BrandonMultilingualNeural2"
 
         self.tts_speed_default = self._read_float("azure", "tts", "speed_default", default=1.0, minimum=0.25, maximum=4.0)
 
@@ -212,8 +216,11 @@ class Config:
         else:
             print("Azure STT configuration loaded successfully")
 
-        if not self.azure_tts_endpoint or not self.azure_tts_api_key:
-            print("Azure TTS configuration incomplete. Check config.yaml at azure.tts.endpoint / azure.tts.api_key.")
+        if not self.azure_tts_api_key or (not self.azure_tts_region and not self.azure_tts_endpoint):
+            print(
+                "Azure TTS configuration incomplete. "
+                "Check config.yaml at azure.tts.api_key and either azure.tts.region or azure.tts.endpoint."
+            )
         else:
             print("Azure TTS configuration loaded successfully")
 

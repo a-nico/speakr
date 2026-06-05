@@ -2,7 +2,7 @@
 
 ## Overview
 
-Speakr is a Python application that records audio from a microphone and transcribes it to text using Azure Speech-to-Text services. It also includes Text-to-Speech functionality using Azure OpenAI TTS. The transcribed text is copied to the clipboard and pasted into the active application. It runs in the system tray for easy access.
+Speakr is a Python application that records audio from a microphone and transcribes it to text using Azure Speech-to-Text services. It also includes Text-to-Speech functionality using the Azure Speech SDK. The transcribed text is copied to the clipboard and pasted into the active application. It runs in the system tray for easy access.
 
 ## Installation
 
@@ -38,7 +38,9 @@ Speakr is a Python application that records audio from a microphone and transcri
 - Copy or highlight text that you want to hear spoken.
 - Press **Alt + Windows key** to hear it (it may take a few seconds).
 - Press **Esc ** to cancel the sound playback.
-- Right-click the tray icon and select **TTS Voice** to choose from available voices (alloy, ash, ballad, coral, echo, fable, onyx, nova, sage, shimmer, verse).
+- Right-click the tray icon and select **TTS Voice** to choose from the built-in Azure Speech voice presets.
+- Configure `azure.tts.api_key` and `azure.tts.region` in `config.yaml`. `azure.tts.endpoint` is optional and is only needed for custom endpoint setups.
+- Set `azure.tts.voice_default` to any valid Azure Speech voice name if you want a voice that is not listed in the tray menu.
 
 ### Proofread (LLM)
 - Highlight text in any app.

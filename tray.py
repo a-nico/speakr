@@ -58,7 +58,7 @@ def create_voice_menu(tts_service: TextToSpeechService, icon) -> List[pystray.Me
         def make_checker(v: str) -> Callable[[pystray.MenuItem], bool]:
             return lambda item, voice_name=v: tts_service.current_voice == voice_name
 
-        item = pystray.MenuItem(voice.capitalize(), make_handler(voice), checked=make_checker(voice), radio=True)
+        item = pystray.MenuItem(voice, make_handler(voice), checked=make_checker(voice), radio=True)
         voice_items.append(item)
     return voice_items
 

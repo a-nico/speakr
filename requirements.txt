@@ -1,6 +1,7 @@
 pynput
 sounddevice
 requests
+azure-cognitiveservices-speech
 pyperclip
 pystray
 keyboard

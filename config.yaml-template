@@ -4,11 +4,17 @@ azure:
     api_key: <API_KEY>
 
   tts:
-    endpoint: https://<deployment_name>.openai.azure.com/openai/deployments/tts/audio/speech?api-version=2024-05-01-preview
+    # Required for the normal Speech SDK setup: Speech resource region from the Azure portal
+    region: eastus2
     api_key: <API_KEY>
 
-    # Optional: TTS voice (alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer)
-    # voice_default: alloy
+    # Optional: custom endpoint / custom domain if your Speech resource requires it.
+    # Most setups do not need this when region is provided.
+    # endpoint: https://<resource-name>.cognitiveservices.azure.com/
+
+    # Optional: TTS voice name from Azure Speech.
+    # Examples: en-US-BrandonMultilingualNeural2, en-US-AvaMultilingualNeural2, en-US-AriaNeural
+    # voice_default: en-US-BrandonMultilingualNeural2
 
     # Optional: TTS playback speed (0.25 to 4.0, default is 1.0)
     # speed_default: 1.0
