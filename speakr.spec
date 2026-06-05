@@ -1,12 +1,18 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+from PyInstaller.utils.hooks import collect_dynamic_libs, collect_submodules
+
+
+speechsdk_binaries = collect_dynamic_libs('azure.cognitiveservices.speech')
+speechsdk_hiddenimports = collect_submodules('azure.cognitiveservices.speech')
+
 
 a = Analysis(
     ['speakr.py'],
     pathex=[],
-    binaries=[],
+    binaries=speechsdk_binaries,
     datas=[('start.wav', '.'), ('stop.wav', '.'), ('cancel.wav', '.'), ('send.wav', '.'), ('speaking.ico', '.')],
-    hiddenimports=[],
+    hiddenimports=speechsdk_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
