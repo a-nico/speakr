@@ -26,8 +26,9 @@ def create_icon(config: Config) -> Image.Image:
 
 def create_mic_menu(recorder, icon) -> List[pystray.MenuItem]:
     mic_items: List[pystray.MenuItem] = []
-    for dev in recorder.wasapi_devices:
+    for dev in recorder.available_input_devices:
         device_index: int = dev["index"]
+        label = dev.get("display_name", dev["name"])
 
         def make_handler(d_id: int) -> Callable[[], None]:
             def handler() -> None:
@@ -39,7 +40,7 @@ def create_mic_menu(recorder, icon) -> List[pystray.MenuItem]:
         def make_checker(d_id: int) -> Callable[[pystray.MenuItem], bool]:
             return lambda item, device=d_id: recorder.device_id == device
 
-        item = pystray.MenuItem(dev["name"], make_handler(device_index), checked=make_checker(device_index), radio=True)
+        item = pystray.MenuItem(label, make_handler(device_index), checked=make_checker(device_index), radio=True)
         mic_items.append(item)
     return mic_items
 
