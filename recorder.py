@@ -1,9 +1,11 @@
 import ctypes
 import io
+import re
 import threading
 import time
 import traceback
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from collections import Counter
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 import numpy as np
 import sounddevice as sd
@@ -27,14 +29,38 @@ class Recorder:
         "Windows WDM-KS",
     )
     PREFERRED_DEVICE_NAME_HINTS: Tuple[str, ...] = ("samson", "usb sound card")
+    GENERIC_INPUT_ALIASES: Set[str] = {
+        "microsoft sound mapper input",
+        "primary sound capture driver",
+    }
+    GROUPING_NOISE_WORDS: Set[str] = {
+        "array",
+        "audio",
+        "capture",
+        "device",
+        "digital",
+        "driver",
+        "endpoints",
+        "front",
+        "input",
+        "ks",
+        "microphone",
+        "mme",
+        "rear",
+        "sound",
+        "static",
+        "wave",
+        "wdm",
+        "windows",
+    }
 
     def __init__(self) -> None:
         self.recording: bool = False
         self.audio: List[np.ndarray] = []
         self.lock: threading.Lock = threading.Lock()
         self.device_id: Optional[int] = None
+        self.raw_input_devices: List[Dict[str, Any]] = []
         self.available_input_devices: List[Dict[str, Any]] = []
-        self.wasapi_devices: List[Dict[str, Any]] = []
         self.sample_rate: int = SAMPLE_RATE
         self.error_occurred: bool = False
         self.on_error_callback: Optional[Callable[[], None]] = None
@@ -45,9 +71,146 @@ class Recorder:
         """Find and select an appropriate audio input device."""
         self.refresh_devices(reinitialize_audio=False)
 
-    def _make_device_key(self, device_info: Dict[str, Any]) -> str:
-        hostapi_name = device_info.get("hostapi_name", "Unknown")
-        return f"{hostapi_name}|{device_info['name']}"
+    def _normalize_text(self, value: str) -> str:
+        return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", value.lower())).strip()
+
+    def _is_generic_input_alias(self, device_name: str) -> bool:
+        return self._normalize_text(device_name) in self.GENERIC_INPUT_ALIASES
+
+    def _friendly_device_label(self, device_name: str) -> str:
+        match = re.match(r"^(microphone array|microphone|headset microphone|input)\s*\((.+)\)$", device_name, re.IGNORECASE)
+        label = match.group(2) if match else device_name
+        label = re.sub(r"^\d+\s*-\s*", "", label).strip()
+        return re.sub(r"\s+", " ", label)
+
+    def _is_probable_microphone(self, device_name: str) -> bool:
+        tokens = set(self._normalize_text(device_name).split())
+        if not tokens:
+            return False
+
+        if tokens & {"array", "mic", "microphone"}:
+            return True
+
+        return "headset" in tokens and not (tokens & {"display", "output", "speaker"})
+
+    def _device_group_kind(self, device_name: str) -> str:
+        return "microphone" if self._is_probable_microphone(device_name) else "input"
+
+    def _device_group_tokens(self, device_name: str) -> Set[str]:
+        friendly_name = self._friendly_device_label(device_name)
+        normalized = self._normalize_text(friendly_name)
+        tokens = {token for token in normalized.split() if token not in self.GROUPING_NOISE_WORDS and not token.isdigit()}
+        return tokens or set(normalized.split())
+
+    def _device_matches_group(self, device_info: Dict[str, Any], group: Dict[str, Any]) -> bool:
+        if self._device_group_kind(device_info["name"]) != group["kind"]:
+            return False
+
+        normalized_label = self._normalize_text(self._friendly_device_label(device_info["name"]))
+        if normalized_label in group["signatures"]:
+            return True
+
+        tokens = self._device_group_tokens(device_info["name"])
+        shared_tokens = tokens & group["tokens"]
+        if not shared_tokens:
+            return False
+
+        if tokens == group["tokens"]:
+            return True
+
+        if tokens <= group["tokens"] or group["tokens"] <= tokens:
+            return any(len(token) >= 3 for token in shared_tokens)
+
+        union_size = len(tokens | group["tokens"])
+        return union_size > 0 and (len(shared_tokens) / union_size) >= 0.6
+
+    def _sort_raw_input_devices(
+        self,
+        devices: Iterable[Dict[str, Any]],
+        prioritize_device_id: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        default_input_id = self._get_default_input_device_id()
+        return sorted(
+            devices,
+            key=lambda device: (
+                0 if prioritize_device_id is not None and device["index"] == prioritize_device_id else 1,
+                0 if device["index"] == default_input_id else 1,
+                self._device_hint_rank(device["name"]),
+                self._device_host_rank(device.get("hostapi_name", "Unknown")),
+                self._friendly_device_label(device["name"]).lower(),
+                device["index"],
+            ),
+        )
+
+    def _logical_device_key(self, group: Dict[str, Any]) -> str:
+        token_key = " ".join(sorted(group["tokens"]))
+        if token_key:
+            return f"{group['kind']}|{token_key}"
+        return f"{group['kind']}|{self._normalize_text(group['best_candidate']['name'])}"
+
+    def _deduplicate_display_names(self, logical_devices: List[Dict[str, Any]]) -> None:
+        counts = Counter(device["display_name"] for device in logical_devices)
+        seen: Counter[str] = Counter()
+        for device in logical_devices:
+            label = device["display_name"]
+            if counts[label] <= 1:
+                continue
+            seen[label] += 1
+            device["display_name"] = f"{label} ({seen[label]})"
+
+    def _build_logical_input_devices(self) -> None:
+        non_generic_devices = [device for device in self.raw_input_devices if not self._is_generic_input_alias(device["name"])]
+        microphone_devices = [device for device in non_generic_devices if self._is_probable_microphone(device["name"])]
+
+        if microphone_devices:
+            device_pool = microphone_devices
+        elif non_generic_devices:
+            device_pool = non_generic_devices
+        else:
+            device_pool = list(self.raw_input_devices)
+
+        groups: List[Dict[str, Any]] = []
+        for device in self._sort_raw_input_devices(device_pool):
+            normalized_label = self._normalize_text(self._friendly_device_label(device["name"]))
+            tokens = self._device_group_tokens(device["name"])
+            matching_group = next((group for group in groups if self._device_matches_group(device, group)), None)
+            if matching_group is None:
+                groups.append(
+                    {
+                        "best_candidate": device,
+                        "candidates": [device],
+                        "kind": self._device_group_kind(device["name"]),
+                        "signatures": {normalized_label},
+                        "tokens": set(tokens),
+                    }
+                )
+                continue
+
+            matching_group["candidates"].append(device)
+            matching_group["signatures"].add(normalized_label)
+            matching_group["tokens"].update(tokens)
+
+        default_input_id = self._get_default_input_device_id()
+        logical_devices: List[Dict[str, Any]] = []
+        for group in groups:
+            candidates = self._sort_raw_input_devices(group["candidates"], prioritize_device_id=self.device_id)
+            best_candidate = candidates[0]
+            group["best_candidate"] = best_candidate
+            display_name = self._friendly_device_label(best_candidate["name"])
+            logical_devices.append(
+                {
+                    "candidates": candidates,
+                    "contains_default": any(device["index"] == default_input_id for device in candidates),
+                    "display_name": display_name,
+                    "hostapi_name": best_candidate.get("hostapi_name", "Unknown"),
+                    "index": best_candidate["index"],
+                    "logical_key": self._logical_device_key(group),
+                    "name": display_name,
+                }
+            )
+
+        self._deduplicate_display_names(logical_devices)
+        self.available_input_devices = logical_devices
 
     def _initialize_com_for_audio_thread(self) -> bool:
         try:
@@ -93,8 +256,8 @@ class Recorder:
 
     def _discover_input_devices(self) -> None:
         """Find all available input devices across Windows host APIs."""
+        self.raw_input_devices = []
         self.available_input_devices = []
-        self.wasapi_devices = []
 
         devices = sd.query_devices()
         default_input_id = self._get_default_input_device_id()
@@ -114,32 +277,49 @@ class Recorder:
 
             device["hostapi_name"] = hostapi_name
             device["display_name"] = f"{device['name']} [{hostapi_name}]"
-            self.available_input_devices.append(device)
-            if hostapi_name == "Windows WASAPI":
-                self.wasapi_devices.append(device)
+            self.raw_input_devices.append(device)
 
             default_marker = " (default)" if index == default_input_id else ""
             print(f"  ID {index}: {device['display_name']}{default_marker}")
 
-        if not self.available_input_devices:
+        if not self.raw_input_devices:
             print("No input devices (microphones) found.")
+            return
+
+        self._build_logical_input_devices()
+        print("Logical microphone choices:")
+        for logical_device in self.available_input_devices:
+            print(
+                "  "
+                f"{logical_device['display_name']} "
+                f"-> {logical_device['hostapi_name']} (ID: {logical_device['index']})"
+            )
 
     def _find_device_by_key(self, device_key: Optional[str]) -> Optional[Dict[str, Any]]:
         if not device_key:
             return None
-        return next((device for device in self.available_input_devices if self._make_device_key(device) == device_key), None)
+        return next((device for device in self.available_input_devices if device["logical_key"] == device_key), None)
+
+    def _find_logical_device_by_index(self, device_id: int) -> Optional[Dict[str, Any]]:
+        return next(
+            (
+                device
+                for device in self.available_input_devices
+                if any(candidate["index"] == device_id for candidate in device.get("candidates", []))
+            ),
+            None,
+        )
 
     def _get_ranked_input_devices(self, prioritize_current: bool = True) -> List[Dict[str, Any]]:
-        default_input_id = self._get_default_input_device_id()
         current_device_key = self.selected_device_key
         ranked = sorted(
             self.available_input_devices,
             key=lambda device: (
-                0 if prioritize_current and self._make_device_key(device) == current_device_key else 1,
-                0 if device["index"] == default_input_id else 1,
-                self._device_hint_rank(device["name"]),
+                0 if prioritize_current and device["logical_key"] == current_device_key else 1,
+                0 if device.get("contains_default") else 1,
+                self._device_hint_rank(device["display_name"]),
                 self._device_host_rank(device.get("hostapi_name", "Unknown")),
-                device["name"].lower(),
+                device["display_name"].lower(),
                 device["index"],
             ),
         )
@@ -156,17 +336,27 @@ class Recorder:
             ranked_devices = self._get_ranked_input_devices(prioritize_current=False)
             preferred_device = ranked_devices[0]
 
-        self.device_id = preferred_device["index"]
-        self.selected_device_key = self._make_device_key(preferred_device)
-        print(f"Selected input device: {preferred_device['display_name']} (ID: {self.device_id})")
+        best_candidate = preferred_device["candidates"][0]
+        self.device_id = best_candidate["index"]
+        self.selected_device_key = preferred_device["logical_key"]
+        print(
+            "Selected input device: "
+            f"{preferred_device['display_name']} via {best_candidate['hostapi_name']} "
+            f"(ID: {self.device_id})"
+        )
 
     def set_device(self, device_id: int) -> None:
         """Update the current recording device and adjust sample rate."""
-        device_info = next((d for d in self.available_input_devices if d["index"] == device_id), None)
+        device_info = self._find_logical_device_by_index(device_id)
         if device_info:
-            self.device_id = device_id
-            self.selected_device_key = self._make_device_key(device_info)
-            print(f"Selected device: {device_info['display_name']} (ID: {device_id})")
+            best_candidate = device_info["candidates"][0]
+            self.device_id = best_candidate["index"]
+            self.selected_device_key = device_info["logical_key"]
+            print(
+                "Selected device: "
+                f"{device_info['display_name']} via {best_candidate['hostapi_name']} "
+                f"(ID: {self.device_id})"
+            )
             self._set_supported_sample_rate()
         else:
             print(f"Device ID {device_id} not found in available input devices.")
@@ -236,14 +426,19 @@ class Recorder:
                 if self.device_id is not None:
                     self._set_supported_sample_rate()
 
-        for device in self._get_ranked_input_devices():
-            self.device_id = device["index"]
-            self.selected_device_key = self._make_device_key(device)
-            if not self._set_supported_sample_rate():
-                continue
-            if self._can_open_input_stream(self.device_id, self.sample_rate):
-                print(f"Prepared working input device: {device['display_name']} (ID: {self.device_id})")
-                return True
+        for logical_device in self._get_ranked_input_devices():
+            self.selected_device_key = logical_device["logical_key"]
+            for candidate in logical_device["candidates"]:
+                self.device_id = candidate["index"]
+                if not self._set_supported_sample_rate():
+                    continue
+                if self._can_open_input_stream(self.device_id, self.sample_rate):
+                    print(
+                        "Prepared working input device: "
+                        f"{logical_device['display_name']} via {candidate['hostapi_name']} "
+                        f"(ID: {self.device_id})"
+                    )
+                    return True
 
         return False
 

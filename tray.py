@@ -28,6 +28,7 @@ def create_mic_menu(recorder, icon) -> List[pystray.MenuItem]:
     mic_items: List[pystray.MenuItem] = []
     for dev in recorder.available_input_devices:
         device_index: int = dev["index"]
+        device_key: str = dev.get("logical_key", str(device_index))
         label = dev.get("display_name", dev["name"])
 
         def make_handler(d_id: int) -> Callable[[], None]:
@@ -37,10 +38,10 @@ def create_mic_menu(recorder, icon) -> List[pystray.MenuItem]:
 
             return handler
 
-        def make_checker(d_id: int) -> Callable[[pystray.MenuItem], bool]:
-            return lambda item, device=d_id: recorder.device_id == device
+        def make_checker(logical_key: str) -> Callable[[pystray.MenuItem], bool]:
+            return lambda item, key=logical_key: recorder.selected_device_key == key
 
-        item = pystray.MenuItem(label, make_handler(device_index), checked=make_checker(device_index), radio=True)
+        item = pystray.MenuItem(label, make_handler(device_index), checked=make_checker(device_key), radio=True)
         mic_items.append(item)
     return mic_items
 
